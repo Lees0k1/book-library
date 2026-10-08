@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Библиотека книг</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 30px 16px;
+      background: #111827;
+      color: #f9fafb;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+
+    h1 { text-align: center; }
+
+    .subtitle {
+      text-align: center;
+      color: #9ca3af;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+    }
+
+    input, select {
+      padding: 14px;
+      background: #1f2937;
+      color: white;
+      border: 1px solid #374151;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    input { flex: 1; min-width: 200px; }
+
+    .book {
+      background: #1f2937;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      border: 1px solid #374151;
+    }
+
+    .book h3 {
+      margin: 0 0 12px;
+      color: #93c5fd;
+    }
+
+    .book p {
+      color: #d1d5db;
+      margin: 7px 0;
+    }
+
+    .status {
+      text-align: center;
+      color: #9ca3af;
+      margin: 25px 0;
+    }
+
+    .error { color: #fca5a5; }
+
+    footer {
+      text-align: center;
+      color: #6b7280;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>📚 Электронная библиотека</h1>
+    <p class="subtitle">
+      Каталог книг с поиском и сортировкой
+    </p>
+
+    <div class="controls">
+      <input
+        type="text"
+        id="search"
+        placeholder="Поиск по книге или автору..."
+      >
+
+      <select id="sort">
+        <option value="title">По названию (А–Я)</option>
+        <option value="priceAsc">Цена: сначала дешёвые</option>
+        <option value="priceDesc">Цена: сначала дорогие</option>
+      </select>
+    </div>
+
+    <p id="count" class="subtitle"></p>
+    <div id="books" class="status">Загрузка книг...</div>
+
+    <footer>Библиотека | Supabase + GitHub Pages</footer>
+  </div>
+
+  <script type="module">
+    import { createClient } from
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const supabase = createClient(
+      'https://jqsaozhxdhdcbkmntdlw.supabase.co',
+      'sb_publishable_67s7459LNqwSp0erwFxXKw_FHAik00p'
+    );
+
+    let allBooks = [];
+
+    const booksContainer = document.getElementById('books');
+    const searchInput = document.getElementById('search');
+    const sortSelect = document.getElementById('sort');
+    const count = document.getElementById('count');
+
+    async function loadBooks() {
+      const { data, error } = await supabase
+        .from('books')
+        .select('id, title, price, authors(name)');
+
+      if (error) {
+        booksContainer.className = 'status error';
+        booksContainer.textContent =
+          'Ошибка загрузки: ' + error.message;
+        return;
+      }
+
+      allBooks = data || [];
+      renderBooks();
+    }
+
+    function renderBooks() {
+      const query = searchInput.value.toLowerCase().trim();
+      const sort = sortSelect.value;
+
+      let filtered = allBooks.filter(book => {
+        const title = (book.title || '').toLowerCase();
+        const author = (book.authors?.name || '').toLowerCase();
+
+        return title.includes(query) || author.includes(query);
+      });
+
+      filtered.sort((a, b) => {
+        if (sort === 'priceAsc') {
+          return Number(a.price) - Number(b.price);
+        }
+
+        if (sort === 'priceDesc') {
+          return Number(b.price) - Number(a.price);
+        }
+
+        return a.title.localeCompare(b.title, 'ru');
+      });
+
+      count.textContent = 'Найдено книг: ' + filtered.length;
+
+      booksContainer.className = '';
+      booksContainer.replaceChildren();
+
+      if (filtered.length === 0) {
+        booksContainer.className = 'status';
+        booksContainer.textContent = 'Книги не найдены';
+        return;
+      }
+
+      filtered.forEach(book => {
+        const card = document.createElement('div');
+        card.className = 'book';
+
+        const title = document.createElement('h3');
+        title.textContent = book.title;
+
+        const author = document.createElement('p');
+        author.textContent =
+          'Автор: ' + (book.authors?.name || 'Неизвестен');
+
+        const price = document.createElement('p');
+        price.textContent =
+          'Цена: ' + Number(book.price).toFixed(2);
+
+        card.append(title, author, price);
+        booksContainer.appendChild(card);
+      });
+    }
+
+    searchInput.addEventListener('input', renderBooks);
+    sortSelect.addEventListener('change', renderBooks);
+
+    loadBooks();
+  </script>
+</body>
+</html>
